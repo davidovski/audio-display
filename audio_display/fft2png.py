@@ -1,13 +1,11 @@
 import argparse
 import logging
-import os
 import sys
 
 import numpy as np
-from PIL import Image
-from numpy.fft import fft
-
+import os
 import wavfile
+from PIL import Image
 
 __all__ = []
 __version__ = 0.1
@@ -16,11 +14,11 @@ __updated__ = '2016-02-21'
 __author__ = 'olivier@pcedev.com'
 
 
-def write_spectrum(spectrum, frame_index, opts):
+def write_spectrum(spectrum, frame_index, fs, opts):
     bucket_nb = opts.bar_count
     bucket_pixel_spacing = opts.bar_spacing
     bucket_pixel_width = opts.bar_width
-    half_len = int(len(spectrum) / 2)
+    half_len = int(len(spectrum))
     height = opts.image_height
     im_data = np.zeros((height, bucket_nb * (bucket_pixel_spacing + bucket_pixel_width)), dtype=np.uint8)
 
@@ -28,16 +26,25 @@ def write_spectrum(spectrum, frame_index, opts):
     max_freq = opts.audio_max_freq
 
     log_buckets = np.append(  # np.ones(1),
-        (np.logspace(np.log(min_freq) / np.log(3), np.log(max_freq) / np.log(3), bucket_nb,
-                     base=3) / max_freq * half_len).astype('int'),
+        (np.logspace(np.log(min_freq / (fs / 2 / half_len)) / np.log(3),
+                     np.log(max_freq / (fs / 2 / half_len)) / np.log(3),
+                     bucket_nb, base=3)).astype('int'),
         np.array([half_len]))
+
+    for bucket in range(bucket_nb):
+        try:
+            if log_buckets[bucket] >= log_buckets[bucket + 1]:
+                log_buckets[bucket + 1] = log_buckets[bucket] + 1
+        except KeyError:
+            pass
+
     gain = opts.audio_gain
 
     for bucket_idx in range(bucket_nb):
 
         try:
             line_data = int(
-                gain * np.average(spectrum[log_buckets[bucket_idx]:log_buckets[bucket_idx + 1]]) / np.log(3))
+                gain * 20 * np.average(spectrum[log_buckets[bucket_idx]:log_buckets[bucket_idx + 1]]) / half_len)
         except ValueError:
             # on last frame, we might not have enough data to compute the average in a bucket
             continue
@@ -83,7 +90,7 @@ def main(argv=None):
 
         parser.add_argument("--image-height", dest="image_height", default=120, type=int, help="output images height")
 
-        parser.add_argument("--audio-min-freq", dest="audio_min_freq", default=20, type=int,
+        parser.add_argument("--audio-min-freq", dest="audio_min_freq", default=50, type=int,
                             help="min frequency in input audio")
         parser.add_argument("--audio-max-freq", dest="audio_max_freq", default=2500, type=int,
                             help="max frequency in input audio")
@@ -129,10 +136,9 @@ def main(argv=None):
     frame_start = 0
     frame_index = 0
     while frame_start < len(normalized_data):
-        spectrum = abs(fft(normalized_data[
-                           frame_start:frame_start + 512]))  # TODO check whether real fft wouldn't be ok too
+        spectrum = abs(np.fft.rfft(normalized_data[frame_start:frame_start + 4096]))
 
-        write_spectrum(spectrum, frame_index, opts)
+        write_spectrum(spectrum[1:], frame_index, fs, opts)
 
         frame_start += byte_per_frame
         frame_index += 1
