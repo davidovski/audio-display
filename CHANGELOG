@@ -1,0 +1,7 @@
+### Added
+- initial sinsy-cli
+- added down throttling
+- added download of wav only
+- added explicit user agent
+
+### Changed
