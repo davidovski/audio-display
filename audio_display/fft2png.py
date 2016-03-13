@@ -14,22 +14,22 @@ __updated__ = '2016-02-21'
 __author__ = 'olivier@pcedev.com'
 
 
-def write_spectrum(spectrum, frame_index, fs, opts):
+def write_spectrum(frequencies, spectrum, frame_index, opts):
     bucket_nb = opts.bar_count
     bucket_pixel_spacing = opts.bar_spacing
     bucket_pixel_width = opts.bar_width
-    half_len = int(len(spectrum))
+    spectrum_len = len(spectrum)
     height = opts.image_height
     im_data = np.zeros((height, bucket_nb * (bucket_pixel_spacing + bucket_pixel_width)), dtype=np.uint8)
 
     min_freq = opts.audio_min_freq
     max_freq = opts.audio_max_freq
 
-    log_buckets = np.append(  # np.ones(1),
-        (np.logspace(np.log(min_freq / (fs / 2 / half_len)) / np.log(3),
-                     np.log(max_freq / (fs / 2 / half_len)) / np.log(3),
+    log_buckets = np.append(
+        (np.logspace(np.log(min_freq) / np.log(3),
+                     np.log(max_freq) / np.log(3),
                      bucket_nb, base=3)).astype('int'),
-        np.array([half_len]))
+        np.array([spectrum_len]))
 
     for bucket in range(bucket_nb):
         try:
@@ -38,13 +38,20 @@ def write_spectrum(spectrum, frame_index, fs, opts):
         except KeyError:
             pass
 
+    display_freq = np.logspace(np.log(min_freq) / np.log(3),
+                               np.log(max_freq) / np.log(3),
+                               bucket_nb, base=3)
+
     gain = opts.audio_gain
+
+    interpolated_spectrum = np.interp(display_freq, frequencies, spectrum)
 
     for bucket_idx in range(bucket_nb):
 
         try:
-            line_data = int(
-                gain * 20 * np.average(spectrum[log_buckets[bucket_idx]:log_buckets[bucket_idx + 1]]) / half_len)
+            attenuation = np.log(interpolated_spectrum[bucket_idx] / spectrum_len)
+            line_data = int(np.log(interpolated_spectrum[bucket_idx] / spectrum_len))
+            logging.debug("freq %f, %f dB", display_freq[bucket_idx], interpolated_spectrum[bucket_idx])
         except ValueError:
             # on last frame, we might not have enough data to compute the average in a bucket
             continue
@@ -54,6 +61,14 @@ def write_spectrum(spectrum, frame_index, fs, opts):
             im_data[-line_data:, bucket_start:bucket_start + bucket_pixel_width] = 255
 
     Image.fromarray(im_data).save(opts.output_filename_mask.format(frame_index))
+
+
+def smooth_spectrum(spectrum, previous_spectrum, alpha=0):
+    return (spectrum + alpha * previous_spectrum) / (1 + alpha) if previous_spectrum is not None else spectrum
+
+
+def compute_frequencies(spectrum, fs):
+    return np.arange(spectrum.size) * (fs / 2) / (spectrum.size - 1)
 
 
 def main(argv=None):
@@ -123,7 +138,7 @@ def main(argv=None):
 
     # monoize potential stereo files
     if len(data.shape) > 1:
-        raw_data = data.T[0] + data.T[1]  # this is a two channel soundtrack, I get the first track
+        raw_data = data.T[0] + data.T[1]
         normalize_bits += 1
     else:
         raw_data = data.T
@@ -135,13 +150,26 @@ def main(argv=None):
 
     frame_start = 0
     frame_index = 0
+    previous_spectrum = None
+
     while frame_start < len(normalized_data):
+        # rms = np.sqrt(np.mean(np.square(normalized_data[frame_start: frame_start + 4096])))
+
+        # compute the raw spectrum
         spectrum = abs(np.fft.rfft(normalized_data[frame_start:frame_start + 4096]))
 
-        write_spectrum(spectrum[1:], frame_index, fs, opts)
+        # smooth it over time
+        spectrum = smooth_spectrum(spectrum, previous_spectrum)
+
+        # compute frequencies
+        frequencies = compute_frequencies(spectrum, fs)
+
+        # write spectrum to file
+        write_spectrum(frequencies, spectrum, frame_index, opts)
 
         frame_start += byte_per_frame
         frame_index += 1
+        previous_spectrum = spectrum
 
     return 0
 
