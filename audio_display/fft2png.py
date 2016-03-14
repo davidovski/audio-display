@@ -20,23 +20,10 @@ def write_spectrum(frequencies, spectrum, frame_index, opts):
     bucket_pixel_width = opts.bar_width
     spectrum_len = len(spectrum)
     height = opts.image_height
-    im_data = np.zeros((height, bucket_nb * (bucket_pixel_spacing + bucket_pixel_width)), dtype=np.uint8)
+    im_data = np.zeros((height, bucket_nb * (bucket_pixel_spacing + bucket_pixel_width), 4), dtype=np.uint8)
 
     min_freq = opts.audio_min_freq
     max_freq = opts.audio_max_freq
-
-    log_buckets = np.append(
-        (np.logspace(np.log(min_freq) / np.log(3),
-                     np.log(max_freq) / np.log(3),
-                     bucket_nb, base=3)).astype('int'),
-        np.array([spectrum_len]))
-
-    for bucket in range(bucket_nb):
-        try:
-            if log_buckets[bucket] >= log_buckets[bucket + 1]:
-                log_buckets[bucket + 1] = log_buckets[bucket] + 1
-        except KeyError:
-            pass
 
     display_freq = np.logspace(np.log(min_freq) / np.log(3),
                                np.log(max_freq) / np.log(3),
@@ -49,22 +36,25 @@ def write_spectrum(frequencies, spectrum, frame_index, opts):
     for bucket_idx in range(bucket_nb):
 
         try:
-            attenuation = np.log(interpolated_spectrum[bucket_idx] / spectrum_len)
-            line_data = int(np.log(interpolated_spectrum[bucket_idx] / spectrum_len))
-            logging.debug("freq %f, %f dB", display_freq[bucket_idx], interpolated_spectrum[bucket_idx])
+            attenuation = 10 * np.log(interpolated_spectrum[bucket_idx] / spectrum_len)
+            line_data = min(height / 70 * attenuation, -1)
+            logging.debug("freq %f, %f dB", display_freq[bucket_idx], attenuation)
         except ValueError:
             # on last frame, we might not have enough data to compute the average in a bucket
             continue
 
         if line_data:
             bucket_start = bucket_idx * (bucket_pixel_spacing + bucket_pixel_width)
-            im_data[-line_data:, bucket_start:bucket_start + bucket_pixel_width] = 255
+            im_data[-line_data:, bucket_start:bucket_start + bucket_pixel_width] = (255, 255, 255, 255)
 
-    Image.fromarray(im_data).save(opts.output_filename_mask.format(frame_index))
+    Image.fromarray(im_data, "RGBA").save(opts.output_filename_mask.format(frame_index))
 
 
 def smooth_spectrum(spectrum, previous_spectrum, alpha=0):
-    return (spectrum + alpha * previous_spectrum) / (1 + alpha) if previous_spectrum is not None else spectrum
+    try:
+        return (spectrum + alpha * previous_spectrum) / (1 + alpha)
+    except (ValueError, TypeError):
+        return spectrum
 
 
 def compute_frequencies(spectrum, fs):
@@ -102,6 +92,9 @@ def main(argv=None):
                             help="bar spacing in output images")
         parser.add_argument("-c", "--bar-count", dest="bar_count", default=15, type=int,
                             help="number of bars in output images")
+        parser.add_argument("-b", "--blending", dest="blending", default=0.5, type=float,
+                            help="blending of previous spectrum into current one "
+                                 "(0 = display only fresh data, 1 = use as many previous than fresh data)")
 
         parser.add_argument("--image-height", dest="image_height", default=120, type=int, help="output images height")
 
@@ -159,7 +152,7 @@ def main(argv=None):
         spectrum = abs(np.fft.rfft(normalized_data[frame_start:frame_start + 4096]))
 
         # smooth it over time
-        spectrum = smooth_spectrum(spectrum, previous_spectrum)
+        spectrum = smooth_spectrum(spectrum, previous_spectrum, opts.blending)
 
         # compute frequencies
         frequencies = compute_frequencies(spectrum, fs)
