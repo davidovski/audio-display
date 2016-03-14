@@ -6,6 +6,7 @@ import numpy as np
 import os
 import wavfile
 from PIL import Image
+from PIL import ImageDraw
 
 __all__ = []
 __version__ = 0.1
@@ -20,7 +21,9 @@ def write_spectrum(frequencies, spectrum, frame_index, opts):
     bucket_pixel_width = opts.bar_width
     spectrum_len = len(spectrum)
     height = opts.image_height
-    im_data = np.zeros((height, bucket_nb * (bucket_pixel_spacing + bucket_pixel_width), 4), dtype=np.uint8)
+
+    image = Image.new("RGBA", (bucket_nb * (bucket_pixel_spacing + bucket_pixel_width), height))
+    draw = ImageDraw.Draw(image)
 
     min_freq = opts.audio_min_freq
     max_freq = opts.audio_max_freq
@@ -29,15 +32,13 @@ def write_spectrum(frequencies, spectrum, frame_index, opts):
                                np.log(max_freq) / np.log(3),
                                bucket_nb, base=3)
 
-    gain = opts.audio_gain
-
-    interpolated_spectrum = np.interp(display_freq, frequencies, spectrum)
+    interpolated_spectrum = np.interp(display_freq, frequencies, spectrum, left=0, right=0)
 
     for bucket_idx in range(bucket_nb):
 
         try:
             attenuation = 10 * np.log(interpolated_spectrum[bucket_idx] / spectrum_len)
-            line_data = min(height / 70 * attenuation, -1)
+            line_data = max(height / opts.silence_ceiling * attenuation, -height + 1)
             logging.debug("freq %f, %f dB", display_freq[bucket_idx], attenuation)
         except ValueError:
             # on last frame, we might not have enough data to compute the average in a bucket
@@ -45,10 +46,9 @@ def write_spectrum(frequencies, spectrum, frame_index, opts):
 
         if line_data:
             bucket_start = bucket_idx * (bucket_pixel_spacing + bucket_pixel_width)
-            im_data[-line_data:, bucket_start:bucket_start + bucket_pixel_width] = (255, 255, 255, 255)
+            draw.rectangle((bucket_start, height, bucket_start + bucket_pixel_width, - line_data), fill=(255, 255, 255))
 
-    Image.fromarray(im_data, "RGBA").save(opts.output_filename_mask.format(frame_index))
-
+    image.save(opts.output_filename_mask.format(frame_index))
 
 def smooth_spectrum(spectrum, previous_spectrum, alpha=0):
     try:
@@ -104,6 +104,8 @@ def main(argv=None):
                             help="max frequency in input audio")
         parser.add_argument("--audio-gain", dest="audio_gain", default=10, type=int,
                             help="*> linear <* gain in input audio")
+        parser.add_argument("--silence-ceiling", dest="silence_ceiling", default=70, type=float,
+                            help="opposite of threshold considered silence [in dB, default: %(default)s]")
 
         parser.add_argument("-i", dest="input_filename", default="input.wav", help="input file in wav format")
         parser.add_argument("-o", dest="output_filename_mask", required=True,
