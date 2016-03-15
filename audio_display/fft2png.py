@@ -4,7 +4,7 @@ import sys
 
 import numpy as np
 import os
-import wavfile
+from . import wavfile
 from PIL import Image
 from PIL import ImageDraw
 
@@ -13,7 +13,6 @@ __version__ = 0.1
 __date__ = '2015-12-18'
 __updated__ = '2016-02-21'
 __author__ = 'olivier@pcedev.com'
-
 
 class SpectrumWriter(object):
     def __init__(self, opts):
@@ -91,6 +90,13 @@ class SymetricalHollowRectangleSpectrumWriter(SpectrumWriter):
         self.draw.rectangle((bucket_start, self.height / 2 + line_data / 2, bucket_start + self.bucket_pixel_width,
                              self.height / 2 - line_data / 2), outline=(255, 255, 255))
 
+
+RENDERERS = [FilledRectangleSpectrumWriter,
+             HollowRectangleSpectrumWriter,
+             SymetricalFilledRectangleSpectrumWriter,
+             SymetricalHollowRectangleSpectrumWriter,
+             ]
+
 def smooth_spectrum(spectrum, previous_spectrum, alpha=0):
     try:
         return (spectrum + alpha * previous_spectrum) / (1 + alpha)
@@ -124,7 +130,11 @@ def main(argv=None):
                             default=False,
                             help="don't perform actions [default: %(default)s]"
                             )
-        parser.add_argument("-r", dest="target_fps", default=30, help="input file in wav format")
+        parser.add_argument("-r", "--framerate", dest="target_fps", default=30,
+                            help="output framerate [default: %(default)s]")
+        parser.add_argument("-R", "--renderer", dest="renderer", default=0, choices=range(len(RENDERERS)),
+                            help="which renderer to use to display bars (0=filled, 1=hollow, "
+                                 "2=symetrical filled, 3=symetrical hollow)")
         parser.add_argument("-v", "--version", action="version", version=program_version_string)
 
         parser.add_argument("-w", "--bar-width", dest="bar_width", default=50, type=int,
@@ -191,7 +201,8 @@ def main(argv=None):
     # writer = FilledRectangleSpectrumWriter(opts)
     # writer = HollowRectangleSpectrumWriter(opts)
     # writer = SymetricalFilledRectangleSpectrumWriter(opts)
-    writer = SymetricalHollowRectangleSpectrumWriter(opts)
+    # writer = SymetricalHollowRectangleSpectrumWriter(opts)
+    writer = RENDERERS[opts.renderer](opts)
 
     while frame_start < len(normalized_data):
         # rms = np.sqrt(np.mean(np.square(normalized_data[frame_start: frame_start + 4096])))
