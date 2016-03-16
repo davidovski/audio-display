@@ -132,7 +132,7 @@ def main(argv=None):
                             )
         parser.add_argument("-r", "--framerate", dest="target_fps", default=30,
                             help="output framerate [default: %(default)s]")
-        parser.add_argument("-R", "--renderer", dest="renderer", default=0, choices=range(len(RENDERERS)),
+        parser.add_argument("-R", "--renderer", dest="renderer", default=0, type=int, choices=range(len(RENDERERS)),
                             help="which renderer to use to display bars (0=filled, 1=hollow, "
                                  "2=symetrical filled, 3=symetrical hollow)")
         parser.add_argument("-v", "--version", action="version", version=program_version_string)
