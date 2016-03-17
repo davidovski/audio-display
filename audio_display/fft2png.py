@@ -24,9 +24,9 @@ import wavfile
 from PIL import Image
 
 __all__ = []
-__version__ = 0.1
+__version__ = 0.5
 __date__ = '2015-12-18'
-__updated__ = '2016-02-21'
+__updated__ = '2016-03-17'
 __author__ = 'olivier@pcedev.com'
 
 
@@ -77,7 +77,7 @@ def compute_frequencies(spectrum, fs):
 
 def main(argv=None):
     program_name = os.path.basename(sys.argv[0])
-    program_version = "v0.2"
+    program_version = "v" + __version__
     program_build_date = "%s" % __updated__
 
     program_version_string = '%%prog %s (%s)' % (program_version, program_build_date)
