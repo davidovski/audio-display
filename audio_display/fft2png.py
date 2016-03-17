@@ -38,6 +38,8 @@ class SpectrumWriter(object):
         self.bucket_pixel_width = opts.bar_width
         self.height = opts.image_height
 
+        self.color = opts.color
+
         self.min_freq = opts.audio_min_freq
         self.max_freq = opts.audio_max_freq
 
@@ -86,26 +88,26 @@ class FilledRectangleSpectrumWriter(SpectrumWriter):
     def write_bar(self, bucket_start, line_data):
         self.draw.rectangle(
             (bucket_start, self.height, bucket_start + self.bucket_pixel_width, self.height - line_data),
-            fill=(255, 255, 255))
+            fill=self.color)
 
 
 class HollowRectangleSpectrumWriter(SpectrumWriter):
     def write_bar(self, bucket_start, line_data):
         self.draw.rectangle(
             (bucket_start, self.height, bucket_start + self.bucket_pixel_width, self.height - line_data),
-            outline=(255, 255, 255))
+            outline=self.color)
 
 
 class SymetricalFilledRectangleSpectrumWriter(SpectrumWriter):
     def write_bar(self, bucket_start, line_data):
         self.draw.rectangle((bucket_start, self.height / 2 + line_data / 2, bucket_start + self.bucket_pixel_width,
-                             self.height / 2 - line_data / 2), fill=(255, 255, 255))
+                             self.height / 2 - line_data / 2), fill=self.color)
 
 
 class SymetricalHollowRectangleSpectrumWriter(SpectrumWriter):
     def write_bar(self, bucket_start, line_data):
         self.draw.rectangle((bucket_start, self.height / 2 + line_data / 2, bucket_start + self.bucket_pixel_width,
-                             self.height / 2 - line_data / 2), outline=(255, 255, 255))
+                             self.height / 2 - line_data / 2), outline=self.color)
 
 
 RENDERERS = [FilledRectangleSpectrumWriter,
