@@ -21,9 +21,9 @@ import sys
 
 import numpy as np
 import os
-from PIL import Image
-
 from . import wavfile
+from PIL import Image
+from PIL import ImageDraw
 
 __all__ = []
 __version__ = 0.5
@@ -31,40 +31,88 @@ __date__ = '2015-12-18'
 __updated__ = '2016-03-17'
 __author__ = 'olivier@pcedev.com'
 
+class SpectrumWriter(object):
+    def __init__(self, opts):
+        self.bucket_nb = opts.bar_count
+        self.bucket_pixel_spacing = opts.bar_spacing
+        self.bucket_pixel_width = opts.bar_width
+        self.height = opts.image_height
 
-def write_spectrum(frequencies, spectrum, frame_index, opts):
-    bucket_nb = opts.bar_count
-    bucket_pixel_spacing = opts.bar_spacing
-    bucket_pixel_width = opts.bar_width
-    spectrum_len = len(spectrum)
-    height = opts.image_height
-    im_data = np.zeros((height, bucket_nb * (bucket_pixel_spacing + bucket_pixel_width), 4), dtype=np.uint8)
+        self.min_freq = opts.audio_min_freq
+        self.max_freq = opts.audio_max_freq
 
-    min_freq = opts.audio_min_freq
-    max_freq = opts.audio_max_freq
+        self.silence_ceiling = opts.silence_ceiling
 
-    display_freq = np.logspace(np.log(min_freq) / np.log(3),
-                               np.log(max_freq) / np.log(3),
-                               bucket_nb, base=3)
+        self.output_filename_mask = opts.output_filename_mask
 
-    interpolated_spectrum = np.interp(display_freq, frequencies, spectrum)
+    def write_bar(self, bucket_start, line_data):
+        raise NotImplementedError
 
-    for bucket_idx in range(bucket_nb):
+    def write_spectrum(self, frequencies, spectrum, frame_index):
 
-        try:
-            attenuation = 10 * np.log(interpolated_spectrum[bucket_idx] / spectrum_len)
-            line_data = min(height / 70 * attenuation, -1)
-            logging.debug("freq %f, %f dB", display_freq[bucket_idx], attenuation)
-        except ValueError:
-            # on last frame, we might not have enough data to compute the average in a bucket
-            continue
+        self.image = Image.new("RGBA",
+                               (self.bucket_nb * (self.bucket_pixel_spacing + self.bucket_pixel_width), self.height))
+        self.draw = ImageDraw.Draw(self.image)
 
-        if line_data:
-            bucket_start = bucket_idx * (bucket_pixel_spacing + bucket_pixel_width)
-            im_data[-line_data:, bucket_start:bucket_start + bucket_pixel_width] = opts.color
+        spectrum_len = len(spectrum)
 
-    Image.fromarray(im_data, "RGBA").save(opts.output_filename_mask.format(frame_index))
+        display_freq = np.logspace(np.log(self.min_freq) / np.log(3),
+                                   np.log(self.max_freq) / np.log(3),
+                                   self.bucket_nb, base=3)
 
+        interpolated_spectrum = np.interp(display_freq, frequencies, spectrum, left=0, right=0)
+
+        for bucket_idx in range(self.bucket_nb):
+
+            try:
+                attenuation = 10 * np.log(interpolated_spectrum[bucket_idx] / spectrum_len)
+                line_data = max(self.height + (self.height * attenuation / self.silence_ceiling), 1)
+                logging.debug("freq %f, %f dB", display_freq[bucket_idx], attenuation)
+            except ValueError:
+                # on last frame, we might not have enough data to compute the average in a bucket
+                continue
+
+            if line_data:
+                bucket_start = bucket_idx * (self.bucket_pixel_spacing + self.bucket_pixel_width)
+                self.write_bar(bucket_start, line_data)
+                # draw.rectangle((bucket_start, height, bucket_start + bucket_pixel_width, - line_data), fill=(255, 255, 255))
+
+        self.image.save(self.output_filename_mask.format(frame_index))
+
+        del self.draw
+
+
+class FilledRectangleSpectrumWriter(SpectrumWriter):
+    def write_bar(self, bucket_start, line_data):
+        self.draw.rectangle(
+            (bucket_start, self.height, bucket_start + self.bucket_pixel_width, self.height - line_data),
+            fill=(255, 255, 255))
+
+
+class HollowRectangleSpectrumWriter(SpectrumWriter):
+    def write_bar(self, bucket_start, line_data):
+        self.draw.rectangle(
+            (bucket_start, self.height, bucket_start + self.bucket_pixel_width, self.height - line_data),
+            outline=(255, 255, 255))
+
+
+class SymetricalFilledRectangleSpectrumWriter(SpectrumWriter):
+    def write_bar(self, bucket_start, line_data):
+        self.draw.rectangle((bucket_start, self.height / 2 + line_data / 2, bucket_start + self.bucket_pixel_width,
+                             self.height / 2 - line_data / 2), fill=(255, 255, 255))
+
+
+class SymetricalHollowRectangleSpectrumWriter(SpectrumWriter):
+    def write_bar(self, bucket_start, line_data):
+        self.draw.rectangle((bucket_start, self.height / 2 + line_data / 2, bucket_start + self.bucket_pixel_width,
+                             self.height / 2 - line_data / 2), outline=(255, 255, 255))
+
+
+RENDERERS = [FilledRectangleSpectrumWriter,
+             HollowRectangleSpectrumWriter,
+             SymetricalFilledRectangleSpectrumWriter,
+             SymetricalHollowRectangleSpectrumWriter,
+             ]
 
 def smooth_spectrum(spectrum, previous_spectrum, alpha=0):
     try:
@@ -99,7 +147,11 @@ def main(argv=None):
                             default=False,
                             help="don't perform actions [default: %(default)s]"
                             )
-        parser.add_argument("-r", dest="target_fps", default=30, help="input file in wav format")
+        parser.add_argument("-r", "--framerate", dest="target_fps", default=30,
+                            help="output framerate [default: %(default)s]")
+        parser.add_argument("-R", "--renderer", dest="renderer", default=0, type=int, choices=range(len(RENDERERS)),
+                            help="which renderer to use to display bars (0=filled, 1=hollow, "
+                                 "2=symetrical filled, 3=symetrical hollow)")
         parser.add_argument("-v", "--version", action="version", version=program_version_string)
 
         parser.add_argument("-w", "--bar-width", dest="bar_width", default=5, type=int,
@@ -122,6 +174,8 @@ def main(argv=None):
                             help="min frequency in input audio")
         parser.add_argument("--audio-max-freq", dest="audio_max_freq", default=2500, type=int,
                             help="max frequency in input audio")
+        parser.add_argument("--silence-ceiling", dest="silence_ceiling", default=70, type=float,
+                            help="opposite of threshold considered silence [in dB, default: %(default)s]")
 
         parser.add_argument("-i", dest="input_filename", default="input.wav", help="input file in wav format")
         parser.add_argument("-o", dest="output_filename_mask", required=True,
@@ -188,7 +242,7 @@ def main(argv=None):
         frequencies = compute_frequencies(spectrum, fs)
 
         # write spectrum to file
-        write_spectrum(frequencies, spectrum, frame_index, opts)
+        writer.write_spectrum(frequencies, spectrum, frame_index)
 
         frame_start += byte_per_frame
         frame_index += 1
