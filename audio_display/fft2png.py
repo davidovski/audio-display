@@ -1,3 +1,19 @@
+# fft2png, Generate spectrum from audio to png
+# Copyright (C) 2016  Olivier Jolly
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
 import argparse
 import logging
 import sys
@@ -28,8 +44,6 @@ def write_spectrum(frequencies, spectrum, frame_index, opts):
     display_freq = np.logspace(np.log(min_freq) / np.log(3),
                                np.log(max_freq) / np.log(3),
                                bucket_nb, base=3)
-
-    gain = opts.audio_gain
 
     interpolated_spectrum = np.interp(display_freq, frequencies, spectrum)
 
@@ -86,13 +100,13 @@ def main(argv=None):
         parser.add_argument("-r", dest="target_fps", default=30, help="input file in wav format")
         parser.add_argument("-v", "--version", action="version", version=program_version_string)
 
-        parser.add_argument("-w", "--bar-width", dest="bar_width", default=50, type=int,
+        parser.add_argument("-w", "--bar-width", dest="bar_width", default=5, type=int,
                             help="bar width in output images")
-        parser.add_argument("-s", "--bar-spacing", dest="bar_spacing", default=20, type=int,
+        parser.add_argument("-s", "--bar-spacing", dest="bar_spacing", default=2, type=int,
                             help="bar spacing in output images")
-        parser.add_argument("-c", "--bar-count", dest="bar_count", default=15, type=int,
+        parser.add_argument("-c", "--bar-count", dest="bar_count", default=100, type=int,
                             help="number of bars in output images")
-        parser.add_argument("-b", "--blending", dest="blending", default=0.5, type=float,
+        parser.add_argument("-b", "--blending", dest="blending", default=0.7, type=float,
                             help="blending of previous spectrum into current one "
                                  "(0 = display only fresh data, 1 = use as many previous than fresh data)")
 
@@ -102,8 +116,6 @@ def main(argv=None):
                             help="min frequency in input audio")
         parser.add_argument("--audio-max-freq", dest="audio_max_freq", default=2500, type=int,
                             help="max frequency in input audio")
-        parser.add_argument("--audio-gain", dest="audio_gain", default=10, type=int,
-                            help="*> linear <* gain in input audio")
 
         parser.add_argument("-i", dest="input_filename", default="input.wav", help="input file in wav format")
         parser.add_argument("-o", dest="output_filename_mask", required=True,
@@ -169,3 +181,6 @@ def main(argv=None):
 
 if __name__ == "__main__":
     sys.exit(main())
+
+# ffmpeg -i ~/starTrailsLoop_720p.mp4 -framerate 30 -i audio-00%4d.png -filter_complex "overlay=(main_w-overlay_w)/2:(main_h-overlay_h)/2:shortest=1" -i ~/Musique/change_wip.wav -map 2:0 -vframes 1151 -strict -2 test-b0.5.mp4 -y
+#  ffmpeg -loop 1 -i ~/Téléchargement/star-tracks-1247850_1280.jpg -framerate 30 -i audio-00%4d.png -filter_complex "overlay=(main_w-overlay_w)/2:(main_h-overlay_h)/2:shortest=0" -i ~/Musique/change_wip.wav -map 2:0 -strict -2 -vframes 1151 test-b0.5.mp4 -y

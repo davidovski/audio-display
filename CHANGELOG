@@ -1,7 +1,5 @@
 ### Added
-- initial sinsy-cli
-- added down throttling
-- added download of wav only
-- added explicit user agent
+- initial fft2png version
+- rendering using 4 drawing methods
 
 ### Changed
