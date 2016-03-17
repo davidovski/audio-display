@@ -16,12 +16,14 @@
 
 import argparse
 import logging
+import math
 import sys
 
 import numpy as np
 import os
-import wavfile
 from PIL import Image
+
+from . import wavfile
 
 __all__ = []
 __version__ = 0.5
@@ -59,7 +61,7 @@ def write_spectrum(frequencies, spectrum, frame_index, opts):
 
         if line_data:
             bucket_start = bucket_idx * (bucket_pixel_spacing + bucket_pixel_width)
-            im_data[-line_data:, bucket_start:bucket_start + bucket_pixel_width] = (255, 255, 255, 255)
+            im_data[-line_data:, bucket_start:bucket_start + bucket_pixel_width] = opts.color
 
     Image.fromarray(im_data, "RGBA").save(opts.output_filename_mask.format(frame_index))
 
@@ -77,7 +79,7 @@ def compute_frequencies(spectrum, fs):
 
 def main(argv=None):
     program_name = os.path.basename(sys.argv[0])
-    program_version = "v" + __version__
+    program_version = "v" + str(__version__)
     program_build_date = "%s" % __updated__
 
     program_version_string = '%%prog %s (%s)' % (program_version, program_build_date)
@@ -106,9 +108,13 @@ def main(argv=None):
                             help="bar spacing in output images")
         parser.add_argument("-c", "--bar-count", dest="bar_count", default=100, type=int,
                             help="number of bars in output images")
+        parser.add_argument("-C", "--color", dest="color", default='FFFFFFFF', type=str,
+                            help="hexa color of bars [RRGGBB or RRGGBBAA, default: %(default)s]")
         parser.add_argument("-b", "--blending", dest="blending", default=0.7, type=float,
                             help="blending of previous spectrum into current one "
                                  "(0 = display only fresh data, 1 = use as many previous than fresh data)")
+        parser.add_argument("-W", "--window", dest="fft_window", default=4096, type=int,
+                            help="window size for FFT [default: %(default)s]")
 
         parser.add_argument("--image-height", dest="image_height", default=120, type=int, help="output images height")
 
@@ -135,6 +141,14 @@ def main(argv=None):
     else:
         logging.root.setLevel(logging.INFO)
 
+    # convert hexa in input to RGBA tuple
+    opts.color = (
+        int(opts.color[0:2], 16),
+        int(opts.color[2:4], 16),
+        int(opts.color[4:6], 16),
+        int(opts.color[6:8], 16) if len(opts.color) > 6 else 255
+    )
+
     # load input file
     fs, data = wavfile.read(opts.input_filename)
 
@@ -157,11 +171,15 @@ def main(argv=None):
     frame_index = 0
     previous_spectrum = None
 
+    frame_index_max = math.ceil(len(normalized_data) / byte_per_frame)
+
     while frame_start < len(normalized_data):
         # rms = np.sqrt(np.mean(np.square(normalized_data[frame_start: frame_start + 4096])))
 
+        print("{0:6}/{1:6}".format(frame_index, frame_index_max), end="\r")
+
         # compute the raw spectrum
-        spectrum = abs(np.fft.rfft(normalized_data[frame_start:frame_start + 4096]))
+        spectrum = abs(np.fft.rfft(normalized_data[frame_start:frame_start + opts.fft_window]))
 
         # smooth it over time
         spectrum = smooth_spectrum(spectrum, previous_spectrum, opts.blending)
