@@ -58,6 +58,10 @@ class SpectrumWriter(object):
 
         spectrum_len = len(spectrum)
 
+        # on last frame, it might happen that len is 0, just exit in this case
+        if spectrum_len == 0:
+            return
+
         display_freq = np.logspace(np.log(self.min_freq) / np.log(3),
                                    np.log(self.max_freq) / np.log(3),
                                    self.bucket_nb, base=3)
@@ -228,6 +232,8 @@ def main(argv=None):
     previous_spectrum = None
 
     frame_index_max = math.ceil(len(normalized_data) / byte_per_frame)
+
+    writer = RENDERERS[opts.renderer](opts)
 
     while frame_start < len(normalized_data):
         # rms = np.sqrt(np.mean(np.square(normalized_data[frame_start: frame_start + 4096])))
