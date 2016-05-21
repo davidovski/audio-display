@@ -21,9 +21,10 @@ import sys
 
 import numpy as np
 import os
-from . import wavfile
 from PIL import Image
 from PIL import ImageDraw
+
+from . import wavfile
 
 __all__ = []
 __version__ = 0.5
@@ -261,6 +262,3 @@ def main(argv=None):
 
 if __name__ == "__main__":
     sys.exit(main())
-
-# ffmpeg -i ~/starTrailsLoop_720p.mp4 -framerate 30 -i audio-00%4d.png -filter_complex "overlay=(main_w-overlay_w)/2:(main_h-overlay_h)/2:shortest=1" -i ~/Musique/change_wip.wav -map 2:0 -vframes 1151 -strict -2 test-b0.5.mp4 -y
-#  ffmpeg -loop 1 -i ~/Téléchargement/star-tracks-1247850_1280.jpg -framerate 30 -i audio-00%4d.png -filter_complex "overlay=(main_w-overlay_w)/2:(main_h-overlay_h)/2:shortest=0" -i ~/Musique/change_wip.wav -map 2:0 -strict -2 -vframes 1151 test-b0.5.mp4 -y
