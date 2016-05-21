@@ -160,7 +160,7 @@ stream ends.
 Installation
 ------------
 
-**audio-display** will be installable from PyPI with a single pip command::
+**audio-display** is installable from PyPI with a single pip command::
 
     pip install audio-display
 
