@@ -106,12 +106,56 @@ Usage
   Spectrum generation window is the amount of data in the audio file used to determine the spectrum raw data.
   Lower value will make spectrum blockier but will be slightly faster to generate.
 
+Example
+.......
+
+To use default values when generating spectrum, just invoke::
+
+    fft2png -i input.wav -o output-{:06}.png
+
+`result of default fft2png settings`_
+
+For a slightly different result, you can invoke it like this::
+
+    fft2png -R2 -w4 -s4 -c30 -C FF8080A0 --audio-min-freq 100 -i input.wav -o output-{:06}.png
+
+You'll end up with 30 symetrical transparent redish solid bars 4 pixels wide, spaced by 4 pixels
+
+`result of red solid symetrical bars ff2png settings`_
+
 ****
 
 FFMpeg usage
 ............
 
 .. _ffmpeg usage:
+
+If you already have a video as background and want to add spectrogram center on it while adding some musique, you can
+invoke ffmpeg like this::
+
+    ffmpeg -i <background_video.mp4> -framerate <generated frames framerate> -i <audio-00%4d.png> -filter_complex "overlay=(main_w-overlay_w)/2:(main_h-overlay_h)/2:shortest=1" -i <music.wav> -map 2:0 -vframes <number of generated frames> -strict -2 <output.mp4> -y
+
+where :
+  * <background_video.mp4> is the filename of your background video
+  * <generated frames framerate> is the framerate used when generating spectrogram frames
+  * <audio-00%4d.png> is the mask of the generated frames to overlay
+  * <music.wav> is the filename of the your music
+  * <number of generated frames> is, well, the number of generated spectrogram frames
+  * <output.mp4> is the generated muxed video
+
+A few notes :
+  * you can change the overlay position by setting the position in absolute coordinates or using some maths with main_w, main_h, overlay_w, overlay_h as show here
+  * **-y** is for overwriting the result file
+  * **-strict -2** alleviates some error with aac encoding on my version/system combo
+  * the background video will not loop. As for now (ffmpeg 3.0.1), looping is not for video. If your video is too short, prepare one which is long enough by concatenating it several times. The **shortest=1** in the filter expression will  stop whenever an input stream (background video, spectrogram images or music) reaches its end.
+  * use the ffmpeg manual, Luke
+
+If you want to use a static image as background, the invocation becomes something like::
+
+    ffmpeg -loop 1 -i <background_image.jpg> -framerate <generated frames framerate> -i <audio-00%4d.png> -filter_complex "overlay=(main_w-overlay_w)/2:(main_h-overlay_h)/2:shortest=1" -i <music.wav> -map 2:0 -vframes <number of generated frames> -strict -2 <output.mp4> -y
+
+The main difference being the **-loop 1** to loop the background image over and over until one of the other
+stream ends.
 
 Installation
 ------------
@@ -133,3 +177,5 @@ or directly from its git repository::
 .. _Sonic Candle: http://soniccandle.sourceforge.net/
 .. _Natron: http://natron.fr
 .. _FFmpeg: http://ffmpeg.org
+.. _result of default fft2png settings: https://i.imgur.com/hrc0YRv
+.. _result of red solid symetrical bars ff2png settings: https://imgur.com/e0hy5qG
