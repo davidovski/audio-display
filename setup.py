@@ -113,6 +113,7 @@ setup(
     entry_points={
         'console_scripts': [
             'fft2png=audio_display.fft2png:main',
+            'wavprogress=audio_display.wavprogress:main',
         ],
     },
 
