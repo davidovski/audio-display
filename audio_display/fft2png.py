@@ -1,6 +1,4 @@
 # fft2png, Generate spectrum from audio to png
-# Copyright (C) 2016  Olivier Jolly
-#
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
@@ -27,10 +25,10 @@ from PIL import ImageDraw
 from . import wavfile
 
 __all__ = []
-__version__ = 0.5
+__version__ = 0.6
 __date__ = '2015-12-18'
-__updated__ = '2016-03-17'
-__author__ = 'olivier@pcedev.com'
+__updated__ = '2020-01-02'
+__author__ = 'davidovski'
 
 class SpectrumWriter(object):
     def __init__(self, opts):
@@ -226,7 +224,7 @@ def main(argv=None):
     # and normalize audio file in the [ -1 ; 1 ] range
     normalized_data = raw_data / 2 ** normalize_bits
 
-    byte_per_frame = fs / opts.target_fps
+    byte_per_frame = int(fs) / int(opts.target_fps)
 
     frame_start = 0
     frame_index = 0
@@ -253,7 +251,7 @@ def main(argv=None):
         # write spectrum to file
         writer.write_spectrum(frequencies, spectrum, frame_index)
 
-        frame_start += byte_per_frame
+        frame_start += int(byte_per_frame)
         frame_index += 1
         previous_spectrum = spectrum
 

@@ -5,6 +5,7 @@ audio-display
 It aims at generating images to produce visual "companion" to audio files. Typically to create
 a video clip supporting a musical composition.
 
+This fork aims to fix any bugs with the original (seemingly abandoned) project and to overall improve the functionality of this program.
 
 fft2png
 -------
@@ -32,7 +33,6 @@ Usage
                    [--silence-ceiling SILENCE_CEILING] [-i INPUT_FILENAME] -o
                    OUTPUT_FILENAME_MASK
 
-    GPL v3+ 2015 Olivier Jolly
 
     optional arguments:
       -h, --help            show this help message and exit
@@ -159,20 +159,28 @@ stream ends.
 
 Installation
 ------------
+.. |ss| raw:: html
 
-**audio-display** is installable from PyPI with a single pip command::
+   <strike>
+
+.. |se| raw:: html
+
+   </strike>
+
+|ss| **audio-display** is installable from PyPI with a single pip command::
 
     pip install audio-display
+|se| This fork is not available on PyPI yet
 
 Alternatively, **audio-display** can be run directly from sources after a git pull (recommended if you want to tweak
 or read the source)::
 
-    git clone https://gitlab.com/zeograd/audio-display.git
+    git clone https://github.com/davidovski/audio-display.git
     cd audio-display && python setup.py install
 
 or directly from its git repository::
 
-    pip install git+https://gitlab.com/zeograd/audio-display.git
+    pip install git+https://github.com/davidovski/audio-display.git
 
 .. _Sonic Candle: http://soniccandle.sourceforge.net/
 .. _Natron: http://natron.fr
