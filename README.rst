@@ -38,8 +38,10 @@ Usage
       -h, --help            show this help message and exit
       -d, --debug           debug operations [default: False]
       -n                    don't perform actions [default: False]
-      -r TARGET_FPS, --framerate TARGET_FPS     output framerate [default: 30]
-      -R {0,1,2,3}, --renderer {0,1,2,3}        which renderer to use to display bars (0=filled, 1=hollow, 2=symetrical filled, 3=symetrical hollow)
+      -r TARGET_FPS, --framerate TARGET_FPS
+                            output framerate [default: 30]
+      -R {0,1,2,3}, --renderer {0,1,2,3}
+                            which renderer to use to display bars (0=filled, 1=hollow, 2=symetrical filled, 3=symetrical hollow)
       -v, --version         show program's version number and exit
       -w BAR_WIDTH, --bar-width BAR_WIDTH
                             bar width in output images
